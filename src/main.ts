@@ -1,6 +1,6 @@
-import './config';
+import {html, render} from 'lit-html';
 
-const PEXELS_API_KEY = process.env.PEXELS_API_KEY;
+const PEXELS_API_KEY = import.meta.env.VITE_PEXELS_API_KEY;
 
 interface Photo {
   id: number;
@@ -44,3 +44,21 @@ async function fetchImagesFromAPI(searchTerm: string, perPage: number): Promise<
   const json = (await result.json()) as PhotoSearchAPIResult;
   return json;
 }
+
+fetchImagesFromAPI('dogs', 5).then((data) => {
+  const htmlToRender = html`
+    <h1>Results for "dogs"</h1>
+    <ul>
+      ${data.photos.map((photo) => {
+        return html`<li><img src=${photo.src.small} /></li>`;
+      })}
+    </ul>
+  `;
+
+  const div = document.getElementById('app');
+  if (!div) {
+    throw new Error('could not find app div');
+  }
+
+  render(htmlToRender, div);
+});
