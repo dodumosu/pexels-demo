@@ -1,7 +1,7 @@
 import {html, nothing, render} from 'lit-html';
 import { fetchImagesFromAPI, fetchVideosFromAPI, isPhoto, Resource } from './pexels';
 import { renderResource } from './photo-renderer';
-import { loadLikes, saveLikes } from './storage';
+import { LikedResource, loadLikes, saveLikes } from './storage';
 import './style.css';
 
 
@@ -31,32 +31,32 @@ function renderApp(results: readonly Resource[] | null): void {
   if (!div)
     throw new Error('could not find app div');
 
-  const likedData = loadLikes() || {
-    photos: [],
-    videos: [],
-  };
+  const likedData = loadLikes() || [];
 
   function onUserLikeClick(resource: Resource): void {
-    let arrayOfLikes: number[] = [];
+    const enumResourceType = isPhoto(resource)
+      ? LikedResource.Photo
+      : LikedResource.Video;
 
-    if (isPhoto(resource))
-      arrayOfLikes = likedData.photos;
-    else
-      arrayOfLikes = likedData.videos
+    const likedResourceEntry = likedData.find(entry => {
+      return (
+        entry.id === resource.id && entry.resourceType === enumResourceType
+      );
+    });
+    const resourceIsLiked = likedResourceEntry !== undefined;
 
-    const resourceIsLiked = arrayOfLikes.includes(resource.id);
+    let newLikedResources = likedData;
+
     if (resourceIsLiked) {
-      arrayOfLikes = arrayOfLikes.filter(id => id !== resource.id);
+      newLikedResources = newLikedResources.filter(entry => entry !== likedResourceEntry);
     } else {
-      arrayOfLikes.push(resource.id);
+      newLikedResources.push({
+        id: resource.id,
+        resourceType: enumResourceType,
+      });
     }
 
-    if (isPhoto(resource))
-      likedData.photos = arrayOfLikes;
-    else
-      likedData.videos = arrayOfLikes;
-
-    saveLikes(likedData);
+    saveLikes(newLikedResources);
     renderApp(results);
   }
 
@@ -70,9 +70,16 @@ function renderApp(results: readonly Resource[] | null): void {
     <ul>
       ${results
         ? results.map(resource => {
-          const resourceIsLiked = isPhoto(resource)
-            ? likedData.photos.includes(resource.id)
-            : likedData.videos.includes(resource.id);
+          const resourceIsLiked = likedData.some(entry => {
+            const enumResourceType = isPhoto(resource)
+              ? LikedResource.Photo
+              : LikedResource.Video;
+
+            return (
+              entry.id === resource.id &&
+              entry.resourceType === enumResourceType
+            );
+          });
 
           return renderResource(resource, onUserLikeClick, resourceIsLiked);
 
