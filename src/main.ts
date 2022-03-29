@@ -1,6 +1,8 @@
 import {html, nothing, render} from 'lit-html';
 import { fetchImagesFromAPI, PhotoSearchAPIResult } from './pexels';
 import { renderPhoto } from './photo-renderer';
+import { loadLikes, saveLikes } from './storage';
+import './style.css';
 
 
 async function onFormSubmit(event: SubmitEvent) {
@@ -21,6 +23,22 @@ function renderApp(results: PhotoSearchAPIResult | null): void {
   if (!div)
     throw new Error('could not find app div');
 
+  const likedData = loadLikes() || {
+    photos: [],
+    videos: [],
+  };
+
+  function onUserLikeClick(photoId: number): void {
+    const photoIsLiked = likedData.photos.includes(photoId);
+    if (photoIsLiked) {
+      likedData.photos = likedData.photos.filter(id => id !== photoId);
+    } else {
+      likedData.photos.push(photoId);
+    }
+    saveLikes(likedData);
+    renderApp(results);
+  }
+
   const htmlToRender = html`
     <h1>Amazing Photo App</h1>
 
@@ -31,7 +49,8 @@ function renderApp(results: PhotoSearchAPIResult | null): void {
     <ul>
       ${results
         ? results.photos.map(photo => {
-          return renderPhoto(photo);
+          const photoIsLiked = likedData.photos.includes(photo.id);
+          return renderPhoto(photo, onUserLikeClick, photoIsLiked);
         })
         : nothing
       }
