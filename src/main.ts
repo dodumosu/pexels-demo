@@ -1,6 +1,6 @@
 import {html, nothing, render} from 'lit-html';
 import { fetchImagesFromAPI, fetchVideosFromAPI, isPhoto, Resource } from './pexels';
-import { renderPhoto, renderVideo } from './photo-renderer';
+import { renderResource } from './photo-renderer';
 import { loadLikes, saveLikes } from './storage';
 import './style.css';
 
@@ -70,16 +70,14 @@ function renderApp(results: readonly Resource[] | null): void {
     <ul>
       ${results
         ? results.map(resource => {
-          if (isPhoto(resource)) {
-            const photoIsLiked = likedData.photos.includes(resource.id);
-            return renderPhoto(resource, onUserLikeClick, photoIsLiked);
-          } else {
-            const videoIsLiked = likedData.videos.includes(resource.id);
-            return renderVideo(resource, onUserLikeClick, videoIsLiked);
-          }
+          const resourceIsLiked = isPhoto(resource)
+            ? likedData.photos.includes(resource.id)
+            : likedData.videos.includes(resource.id);
+
+          return renderResource(resource, onUserLikeClick, resourceIsLiked);
+
         })
-        : nothing
-      }
+      : nothing}
     </ul>
   `;
   render(htmlToRender, div);
