@@ -1,6 +1,6 @@
 import {html, nothing, render} from 'lit-html';
-import { fetchImagesFromAPI, PhotoSearchAPIResult } from './pexels';
-import { renderPhoto } from './photo-renderer';
+import { fetchImagesFromAPI, fetchVideosFromAPI, isPhoto, Resource } from './pexels';
+import { renderPhoto, renderVideo } from './photo-renderer';
 import { loadLikes, saveLikes } from './storage';
 import './style.css';
 
@@ -14,11 +14,19 @@ async function onFormSubmit(event: SubmitEvent) {
   const query = formData.get('search-query');
   if (query && typeof query === 'string') {
     const results = await fetchImagesFromAPI(query, 10);
-    renderApp(results);
+    const videos = await fetchVideosFromAPI(query, 10);
+
+    const photosAndVideos: Array<Resource> = [];
+    for (let i = 0; i < results.photos.length; i++) {
+      photosAndVideos.push(results.photos[i]);
+      photosAndVideos.push(videos.videos[i]);
+    }
+
+    renderApp(photosAndVideos);
   }
 }
 
-function renderApp(results: PhotoSearchAPIResult | null): void {
+function renderApp(results: readonly Resource[] | null): void {
   const div = document.getElementById('app');
   if (!div)
     throw new Error('could not find app div');
@@ -28,13 +36,26 @@ function renderApp(results: PhotoSearchAPIResult | null): void {
     videos: [],
   };
 
-  function onUserLikeClick(photoId: number): void {
-    const photoIsLiked = likedData.photos.includes(photoId);
-    if (photoIsLiked) {
-      likedData.photos = likedData.photos.filter(id => id !== photoId);
+  function onUserLikeClick(resource: Resource): void {
+    let arrayOfLikes: number[] = [];
+
+    if (isPhoto(resource))
+      arrayOfLikes = likedData.photos;
+    else
+      arrayOfLikes = likedData.videos
+
+    const resourceIsLiked = arrayOfLikes.includes(resource.id);
+    if (resourceIsLiked) {
+      arrayOfLikes = arrayOfLikes.filter(id => id !== resource.id);
     } else {
-      likedData.photos.push(photoId);
+      arrayOfLikes.push(resource.id);
     }
+
+    if (isPhoto(resource))
+      likedData.photos = arrayOfLikes;
+    else
+      likedData.videos = arrayOfLikes;
+
     saveLikes(likedData);
     renderApp(results);
   }
@@ -48,9 +69,14 @@ function renderApp(results: PhotoSearchAPIResult | null): void {
     </form>
     <ul>
       ${results
-        ? results.photos.map(photo => {
-          const photoIsLiked = likedData.photos.includes(photo.id);
-          return renderPhoto(photo, onUserLikeClick, photoIsLiked);
+        ? results.map(resource => {
+          if (isPhoto(resource)) {
+            const photoIsLiked = likedData.photos.includes(resource.id);
+            return renderPhoto(resource, onUserLikeClick, photoIsLiked);
+          } else {
+            const videoIsLiked = likedData.videos.includes(resource.id);
+            return renderVideo(resource, onUserLikeClick, videoIsLiked);
+          }
         })
         : nothing
       }
